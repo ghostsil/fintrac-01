@@ -226,14 +226,14 @@ export default function FintracComplete() {
                           {expandedWeeks.includes(wKey) && (
                             <div className="px-4 pb-4 space-y-2">
                               {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
-                                <div key={item.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/[0.02] group">
+                                <div key={item.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/[0.02]">
                                   <div className="flex items-center gap-4">
                                     <div className="text-[#bfff00] opacity-30">
                                       {item.category.includes('FOOD') && <Utensils size={14} />}
                                       {item.category.includes('PETROL') && <Fuel size={14} />}
                                       {item.category.includes('NEPA') && <Zap size={14} />}
                                       {item.category.includes('DATA') && <Smartphone size={14} />}
-                                      {item.category.includes('INVENTORY') && <Box size={14} />}
+                                      {item.category.includes('MISC') && <Box size={14} />}
                                       {item.type === 'INCOME' && <TrendingUp size={14} />}
                                     </div>
                                     <div>
@@ -244,14 +244,23 @@ export default function FintracComplete() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-4">
-                                    <p className={`text-sm font-black ${item.type === 'INCOME' ? 'text-emerald-400' : 'text-white'}`}>
+                                  {/* ALWAYS VISIBLE ACTION BUTTONS */}
+                                  <div className="flex items-center gap-3">
+                                    <p className={`text-sm font-black mr-2 ${item.type === 'INCOME' ? 'text-emerald-400' : 'text-white'}`}>
                                       {item.type === 'INCOME' ? '+' : '-'}{Number(item.amount).toLocaleString()}
                                     </p>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button onClick={() => startEdit(item)} className="p-2 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"><Edit3 size={14} /></button>
-                                      <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
-                                    </div>
+                                    <button
+                                      onClick={() => startEdit(item)}
+                                      className="p-2.5 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20 active:bg-sky-500 active:text-black transition-all"
+                                    >
+                                      <Edit3 size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => deleteEntry(item.id)}
+                                      className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 active:bg-rose-500 active:text-white transition-all"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
                                   </div>
                                 </div>
                               ))}
