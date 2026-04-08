@@ -11,7 +11,7 @@ const supabase = createClient(
 
 const PROJECT_NAME = "FINTRAC_01";
 
-export default function FintracFinal() {
+export default function FintracComplete() {
   const [entries, setEntries] = useState<any[]>([]);
   const [desc, setDesc] = useState("");
   const [amt, setAmt] = useState("");
@@ -19,6 +19,7 @@ export default function FintracFinal() {
   const [subCategory, setSubCategory] = useState("");
   const [type, setType] = useState("EXPENSE");
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
 
@@ -69,7 +70,6 @@ export default function FintracFinal() {
     e.preventDefault();
     if (!desc || !amt) return;
 
-    // Combine category with subcategory if applicable
     let finalCategory = category;
     if ((category === "DATA" || category === "MISC") && subCategory) {
       finalCategory = `${category}: ${subCategory}`;
@@ -81,11 +81,42 @@ export default function FintracFinal() {
       type: type,
       category: type === 'INCOME' ? 'REVENUE' : finalCategory
     };
-    const { data } = await supabase.from('ledger_entries').insert([payload]).select();
-    if (data) {
-      setEntries([data[0], ...entries]);
-      setDesc(""); setAmt(""); setSubCategory("");
+
+    if (editingId) {
+      const { error } = await supabase.from('ledger_entries').update(payload).eq('id', editingId);
+      if (!error) {
+        setEntries(entries.map(item => item.id === editingId ? { ...item, ...payload } : item));
+        setEditingId(null);
+      }
+    } else {
+      const { data } = await supabase.from('ledger_entries').insert([payload]).select();
+      if (data) setEntries([data[0], ...entries]);
     }
+
+    setDesc(""); setAmt(""); setSubCategory("");
+  };
+
+  const deleteEntry = async (id: string) => {
+    if (!window.confirm("ARE YOU SURE YOU WANT TO DELETE THIS LOG?")) return;
+    const { error } = await supabase.from('ledger_entries').delete().eq('id', id);
+    if (!error) setEntries(entries.filter(e => e.id !== id));
+  };
+
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setDesc(item.description);
+    setAmt(item.amount.toString());
+    setType(item.type);
+
+    if (item.category.includes(':')) {
+      const [cat, sub] = item.category.split(': ');
+      setCategory(cat);
+      setSubCategory(sub);
+    } else {
+      setCategory(item.category);
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const totalBalance = entries.reduce((acc, curr) => curr.type === 'INCOME' ? acc + Number(curr.amount) : acc - Number(curr.amount), 0);
@@ -98,30 +129,37 @@ export default function FintracFinal() {
         <div className="flex justify-between items-end mb-10 border-b border-white/5 pb-8">
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-[#bfff00] uppercase">{PROJECT_NAME}</h1>
-            <p className="text-[9px] opacity-30 font-bold tracking-[0.4em] mt-1">ENGINEERING ACCOUNTABILITY</p>
+            <p className="text-[9px] opacity-30 font-bold tracking-[0.4em] mt-1 italic">V2.1 • LIVE INVENTORY CONTROL</p>
           </div>
           <div className="text-right">
-            <p className="text-[8px] font-black opacity-20 uppercase">Total Wallet</p>
+            <p className="text-[8px] font-black opacity-20 uppercase tracking-widest">Global Wallet</p>
             <p className="text-2xl font-black text-white">{totalBalance.toLocaleString()}</p>
           </div>
         </div>
 
         {/* INPUT FORM */}
-        <div className="bg-[#111] p-8 rounded-[2.5rem] border border-white/5 mb-12 shadow-2xl">
+        <div className={`p-8 rounded-[2.5rem] border transition-all mb-12 shadow-2xl ${editingId ? 'bg-amber-500/5 border-amber-500/50' : 'bg-[#111] border-white/5'}`}>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex gap-2 p-1 bg-black rounded-2xl border border-white/5">
-              {['EXPENSE', 'INCOME'].map(t => (
-                <button key={t} type="button" onClick={() => { setType(t); setCategory(t === 'INCOME' ? 'REVENUE' : 'FOOD'); }} className={`flex-1 py-3 rounded-xl text-[10px] font-black transition-all ${type === t ? 'bg-[#bfff00] text-black' : 'opacity-20'}`}>{t === 'INCOME' ? 'ADD REVENUE' : 'ADD EXPENSE'}</button>
-              ))}
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex gap-2 p-1 bg-black rounded-2xl border border-white/5">
+                {['EXPENSE', 'INCOME'].map(t => (
+                  <button key={t} type="button" onClick={() => { setType(t); setCategory(t === 'INCOME' ? 'REVENUE' : 'FOOD'); }} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${type === t ? 'bg-[#bfff00] text-black' : 'opacity-20'}`}>{t}</button>
+                ))}
+              </div>
+              {editingId && (
+                <button type="button" onClick={() => { setEditingId(null); setDesc(""); setAmt(""); }} className="text-rose-500 text-[9px] font-black uppercase underline flex items-center gap-1">
+                  <X size={12} /> Cancel Edit
+                </button>
+              )}
             </div>
 
             {type === 'INCOME' && (
-              <p className="text-[10px] font-black text-[#bfff00] uppercase tracking-widest border-l-2 border-[#bfff00] pl-3">Daily Income Report</p>
+              <p className="text-[10px] font-black text-[#bfff00] uppercase tracking-widest border-l-2 border-[#bfff00] pl-3 italic">Daily Income Report</p>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input placeholder={type === 'INCOME' ? "REVENUE SOURCE" : "EXPENSE DESCRIPTION"} className="bg-transparent border-b border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-lg" value={desc} onChange={e => setDesc(e.target.value)} />
-              <input type="number" placeholder="AMOUNT (NGN)" className="bg-transparent border-b border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-xl" value={amt} onChange={e => setAmt(e.target.value)} />
+              <input placeholder="DESCRIPTION" className="bg-transparent border-b border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-lg" value={desc} onChange={e => setDesc(e.target.value)} />
+              <input type="number" placeholder="AMOUNT" className="bg-transparent border-b border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-xl" value={amt} onChange={e => setAmt(e.target.value)} />
             </div>
 
             {type === 'EXPENSE' && (
@@ -134,29 +172,26 @@ export default function FintracFinal() {
                   <option value="MISC">📦 MISC</option>
                 </select>
 
-                {category === 'DATA' && (
+                {(category === 'DATA' || category === 'MISC') && (
                   <select className="bg-black border border-[#bfff00]/30 rounded-xl p-3 text-[10px] font-black outline-none text-[#bfff00]" value={subCategory} onChange={e => setSubCategory(e.target.value)}>
-                    <option value="">SELECT PROVIDER</option>
-                    <option value="MTN">MTN</option>
-                    <option value="AIRTEL">AIRTEL</option>
-                  </select>
-                )}
-
-                {category === 'MISC' && (
-                  <select className="bg-black border border-[#bfff00]/30 rounded-xl p-3 text-[10px] font-black outline-none text-[#bfff00]" value={subCategory} onChange={e => setSubCategory(e.target.value)}>
-                    <option value="">SELECT TYPE</option>
-                    <option value="INVENTORY">📋 INVENTORY</option>
-                    <option value="OTHERS">🌀 OTHERS</option>
+                    <option value="">{category === 'DATA' ? 'SELECT PROVIDER' : 'SELECT TYPE'}</option>
+                    {category === 'DATA' ? (
+                      <><option value="MTN">MTN</option><option value="AIRTEL">AIRTEL</option></>
+                    ) : (
+                      <><option value="INVENTORY">📋 INVENTORY</option><option value="OTHERS">🌀 OTHERS</option></>
+                    )}
                   </select>
                 )}
               </div>
             )}
-            <button className="w-full bg-[#bfff00] text-black py-5 rounded-2xl font-black text-[11px] tracking-widest shadow-lg shadow-[#bfff00]/5 active:scale-95 transition-all">LOG TRANSACTION</button>
+            <button className={`w-full py-5 rounded-2xl font-black text-[11px] tracking-widest shadow-lg transition-all ${editingId ? 'bg-amber-500 text-black' : 'bg-[#bfff00] text-black shadow-[#bfff00]/5'}`}>
+              {editingId ? 'UPDATE RECORD' : 'LOG TRANSACTION'}
+            </button>
           </form>
         </div>
 
         {/* NESTED LISTING */}
-        <div className="space-y-8">
+        <div className="space-y-8 pb-20">
           {Object.keys(organizedData).map(mKey => {
             const mSaved = organizedData[mKey].revenue - organizedData[mKey].expense;
             return (
@@ -171,7 +206,6 @@ export default function FintracFinal() {
                     <p className={`text-[10px] font-black uppercase ${mSaved >= 0 ? 'text-[#bfff00]' : 'text-rose-500'}`}>
                       {mSaved >= 0 ? `Saved to Bank: ${mSaved.toLocaleString()}` : `Deficit: ${mSaved.toLocaleString()}`}
                     </p>
-                    <p className="text-[8px] opacity-30 font-bold uppercase tracking-tighter">Spent this Month: {organizedData[mKey].expense.toLocaleString()}</p>
                   </div>
                 </button>
 
@@ -185,31 +219,40 @@ export default function FintracFinal() {
                             className="w-full p-5 flex justify-between items-center hover:bg-white/5 transition-all">
                             <p className="text-[10px] font-black text-white/40 uppercase">{wKey}</p>
                             <p className={`text-[10px] font-black ${wSaved >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {wSaved >= 0 ? `Weekly Saved: ${wSaved.toLocaleString()}` : `Weekly Loss: ${wSaved.toLocaleString()}`}
+                              {wSaved >= 0 ? `Saved: ${wSaved.toLocaleString()}` : `Loss: ${wSaved.toLocaleString()}`}
                             </p>
                           </button>
 
                           {expandedWeeks.includes(wKey) && (
                             <div className="px-4 pb-4 space-y-2">
                               {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
-                                <div key={item.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/[0.02]">
+                                <div key={item.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/[0.02] group">
                                   <div className="flex items-center gap-4">
-                                    <div className="text-[#bfff00] opacity-40">
+                                    <div className="text-[#bfff00] opacity-30">
                                       {item.category.includes('FOOD') && <Utensils size={14} />}
                                       {item.category.includes('PETROL') && <Fuel size={14} />}
                                       {item.category.includes('NEPA') && <Zap size={14} />}
                                       {item.category.includes('DATA') && <Smartphone size={14} />}
-                                      {item.category.includes('MISC') && <Box size={14} />}
+                                      {item.category.includes('INVENTORY') && <Box size={14} />}
                                       {item.type === 'INCOME' && <TrendingUp size={14} />}
                                     </div>
                                     <div>
                                       <p className="text-[11px] font-black uppercase text-white tracking-tight">{item.description}</p>
-                                      <p className="text-[8px] font-bold opacity-20 uppercase">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {item.category}</p>
+                                      <p className="text-[8px] font-bold opacity-20 uppercase tracking-tighter">
+                                        {new Date(item.created_at).toLocaleDateString('en-US', { weekday: 'short' })} • {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
                                     </div>
                                   </div>
-                                  <p className={`text-sm font-black ${item.type === 'INCOME' ? 'text-emerald-400' : 'text-white'}`}>
-                                    {item.type === 'INCOME' ? '+' : '-'}{Number(item.amount).toLocaleString()}
-                                  </p>
+
+                                  <div className="flex items-center gap-4">
+                                    <p className={`text-sm font-black ${item.type === 'INCOME' ? 'text-emerald-400' : 'text-white'}`}>
+                                      {item.type === 'INCOME' ? '+' : '-'}{Number(item.amount).toLocaleString()}
+                                    </p>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button onClick={() => startEdit(item)} className="p-2 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"><Edit3 size={14} /></button>
+                                      <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                             </div>
