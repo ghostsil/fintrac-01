@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, TrendingUp, Edit3, X, ChevronDown, ChevronRight, Zap, Box, Smartphone, Landmark, Receipt, CreditCard, ArrowDownCircle } from 'lucide-react';
+import { Trash2, TrendingUp, Edit3, X, ChevronDown, ChevronRight, Zap, Box, Smartphone, Landmark, Receipt, CreditCard } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -23,14 +23,18 @@ export default function FintracRevamp() {
   const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
 
   const fetchLedger = async () => {
-    const { data } = await supabase.from('ledger_entries').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('ledger_entries')
+      .select('*')
+      .order('created_at', { ascending: false });
     if (data) setEntries(data);
   };
 
   useEffect(() => {
     fetchLedger();
     const now = new Date();
-    setExpandedMonths([now.toLocaleString('default', { month: 'long' }).toUpperCase()]);
+    const currentMonth = now.toLocaleString('default', { month: 'long' }).toUpperCase();
+    setExpandedMonths([currentMonth]);
   }, []);
 
   function getWeekNumber(d: Date) {
@@ -98,8 +102,16 @@ export default function FintracRevamp() {
     setDesc(""); setAmt(""); setSubCategory("");
   };
 
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setDesc(item.description);
+    setAmt(item.amount.toString());
+    setType(item.type);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <main className="min-h-screen bg-[#080808] text-[#e0e0e0] p-4 md:p-10 font-sans italic selection:bg-[#bfff00] selection:text-black">
+    <main className="min-h-screen bg-[#080808] text-[#e0e0e0] p-4 md:p-10 font-sans italic">
       <div className="max-w-5xl mx-auto">
 
         {/* GLOBAL HUD */}
@@ -124,26 +136,20 @@ export default function FintracRevamp() {
             <div className="flex gap-2 p-1.5 bg-black/50 rounded-2xl border border-white/5">
               {['EXPENSE', 'INCOME', 'BANK'].map(t => (
                 <button key={t} type="button" onClick={() => { setType(t); setCategory(t === 'INCOME' ? 'REVENUE' : t === 'BANK' ? 'BANK' : 'FOOD'); }}
-                  className={`flex-1 py-3 rounded-xl text-[9px] font-black transition-all ${type === t ? 'bg-[#bfff00] text-black shadow-lg shadow-[#bfff00]/20' : 'opacity-30'}`}>
+                  className={`flex-1 py-3 rounded-xl text-[9px] font-black transition-all ${type === t ? 'bg-[#bfff00] text-black' : 'opacity-30'}`}>
                   {t === 'BANK' ? 'SAVE TO BANK' : t}
                 </button>
               ))}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="relative">
-                <input placeholder=" " className="peer w-full bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-xl transition-all" value={desc} onChange={e => setDesc(e.target.value)} />
-                <label className="absolute left-2 -top-4 text-[8px] font-black opacity-40 uppercase transition-all peer-placeholder-shown:top-2 peer-placeholder-shown:text-sm peer-focus:-top-4 peer-focus:text-[8px] peer-focus:text-[#bfff00]">Description / Source</label>
-              </div>
-              <div className="relative">
-                <input type="number" placeholder=" " className="peer w-full bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-2xl transition-all" value={amt} onChange={e => setAmt(e.target.value)} />
-                <label className="absolute left-2 -top-4 text-[8px] font-black opacity-40 uppercase transition-all peer-placeholder-shown:top-2 peer-placeholder-shown:text-sm peer-focus:-top-4 peer-focus:text-[8px] peer-focus:text-[#bfff00]">Amount (NGN)</label>
-              </div>
+              <input placeholder="DESCRIPTION / SOURCE" className="bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-xl" value={desc} onChange={e => setDesc(e.target.value)} />
+              <input type="number" placeholder="AMOUNT (NGN)" className="bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-2xl" value={amt} onChange={e => setAmt(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {type === 'EXPENSE' && (
-                <select className="bg-black border border-white/10 rounded-2xl p-4 text-[10px] font-black outline-none focus:border-[#bfff00]" value={category} onChange={e => { setCategory(e.target.value); setSubCategory(""); }}>
+                <select className="bg-black border border-white/10 rounded-2xl p-4 text-[10px] font-black outline-none" value={category} onChange={e => setCategory(e.target.value)}>
                   <option value="FOOD">🍔 FOOD</option>
                   <option value="DATA">📡 DATA</option>
                   <option value="PETROL">⛽ PETROL</option>
@@ -166,65 +172,52 @@ export default function FintracRevamp() {
               )}
             </div>
 
-            <button className={`w-full py-6 rounded-[1.5rem] font-black text-[11px] tracking-[0.3em] transition-all active:scale-95 ${editingId ? 'bg-amber-500 text-black' : 'bg-[#bfff00] text-black shadow-xl shadow-[#bfff00]/10 hover:shadow-[#bfff00]/20'}`}>
+            <button className="w-full py-6 rounded-[1.5rem] bg-[#bfff00] text-black font-black text-[11px] tracking-[0.3em]">
               {editingId ? 'UPDATE RECORD' : 'EXECUTE TRANSACTION'}
             </button>
           </form>
         </div>
 
-        {/* NESTED LEDGER */}
+        {/* LISTING */}
         <div className="space-y-10 pb-32">
           {Object.keys(organizedData).map(mKey => (
-            <div key={mKey} className="group">
+            <div key={mKey}>
               <button onClick={() => setExpandedMonths(prev => prev.includes(mKey) ? prev.filter(k => k !== mKey) : [...prev, mKey])}
-                className="w-full mb-4 flex justify-between items-center group-hover:translate-x-1 transition-transform">
+                className="w-full mb-4 flex justify-between items-center text-left">
                 <div className="flex items-center gap-4">
-                  <div className={`p-2 rounded-xl ${expandedMonths.includes(mKey) ? 'bg-[#bfff00] text-black' : 'bg-white/5 text-white'}`}>
-                    {expandedMonths.includes(mKey) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                  </div>
-                  <h2 className="text-3xl font-black tracking-tighter uppercase">{mKey}</h2>
+                  {expandedMonths.includes(mKey) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  <h2 className="text-3xl font-black uppercase">{mKey}</h2>
                 </div>
-                <div className="flex gap-4">
-                  <div className="text-right">
-                    <p className="text-[7px] font-black opacity-30 uppercase">Monthly Bank</p>
-                    <p className="text-sm font-black text-sky-400">{organizedData[mKey].bank.toLocaleString()}</p>
-                  </div>
-                </div>
+                <p className="text-xs font-black text-sky-400">BANK: {organizedData[mKey].bank.toLocaleString()}</p>
               </button>
 
               {expandedMonths.includes(mKey) && (
-                <div className="grid gap-6 pl-4 border-l-2 border-white/5">
+                <div className="pl-4 border-l border-white/5 space-y-6">
                   {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => (
-                    <div key={wKey} className="bg-white/[0.01] rounded-[2rem] border border-white/[0.05] overflow-hidden">
-                      <div className="p-6 flex justify-between items-center bg-white/[0.02]">
-                        <span className="text-[10px] font-black text-[#bfff00] tracking-widest">{wKey}</span>
-                        <div className="flex gap-6">
-                          <div className="text-right">
-                            <p className="text-[7px] font-black opacity-30 uppercase">Weekly Bank</p>
-                            <p className="text-xs font-black text-sky-400">+{organizedData[mKey].weeks[wKey].bank.toLocaleString()}</p>
-                          </div>
-                        </div>
+                    <div key={wKey} className="bg-white/[0.02] rounded-[2rem] border border-white/5 overflow-hidden">
+                      <div className="p-4 bg-white/[0.03] flex justify-between">
+                        <span className="text-[10px] font-black text-[#bfff00]">{wKey}</span>
+                        <span className="text-[10px] font-black text-sky-400">WEEK BANK: {organizedData[mKey].weeks[wKey].bank.toLocaleString()}</span>
                       </div>
-
-                      <div className="p-4 space-y-3">
+                      <div className="p-4 space-y-2">
                         {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
-                          <div key={item.id} className="bg-black/40 p-5 rounded-2xl border border-white/[0.03] flex justify-between items-center group/item hover:border-[#bfff00]/20 transition-all">
-                            <div className="flex items-center gap-5">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.type === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/40'}`}>
-                                {item.type === 'BANK' ? <Landmark size={18} /> : item.type === 'INCOME' ? <TrendingUp size={18} /> : <Receipt size={18} />}
+                          <div key={item.id} className="bg-black/40 p-4 rounded-xl flex justify-between items-center border border-white/[0.02]">
+                            <div className="flex items-center gap-4">
+                              <div className={item.type === 'BANK' ? 'text-sky-400' : item.type === 'INCOME' ? 'text-[#bfff00]' : 'text-white/40'}>
+                                {item.type === 'BANK' ? <Landmark size={16} /> : item.type === 'INCOME' ? <TrendingUp size={16} /> : <Receipt size={16} />}
                               </div>
                               <div>
-                                <p className="text-xs font-black uppercase text-white tracking-wide">{item.description}</p>
-                                <p className="text-[8px] font-black opacity-20 uppercase mt-0.5">{item.category}</p>
+                                <p className="text-xs font-black uppercase">{item.description}</p>
+                                <p className="text-[8px] opacity-20 uppercase">{item.category}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
-                              <p className={`text-sm font-black ${item.type === 'BANK' ? 'text-sky-400' : item.type === 'INCOME' ? 'text-emerald-400' : 'text-white/80'}`}>
+                              <p className={`text-sm font-black ${item.type === 'BANK' ? 'text-sky-400' : item.type === 'INCOME' ? 'text-emerald-400' : 'text-white'}`}>
                                 {item.type === 'EXPENSE' ? '-' : '+'}{Number(item.amount).toLocaleString()}
                               </p>
                               <div className="flex gap-2">
-                                <button onClick={() => startEdit(item)} className="p-2 text-sky-400 bg-sky-400/10 rounded-lg border border-sky-400/20"><Edit3 size={14} /></button>
-                                <button onClick={() => { if (confirm('DELETE LOG?')) supabase.from('ledger_entries').delete().eq('id', item.id).then(fetchLedger) }} className="p-2 text-rose-500 bg-rose-500/10 rounded-lg border border-rose-500/20"><Trash2 size={14} /></button>
+                                <button onClick={() => startEdit(item)} className="text-sky-400"><Edit3 size={14} /></button>
+                                <button onClick={() => { if (confirm('DELETE?')) supabase.from('ledger_entries').delete().eq('id', item.id).then(fetchLedger) }} className="text-rose-500"><Trash2 size={14} /></button>
                               </div>
                             </div>
                           </div>
