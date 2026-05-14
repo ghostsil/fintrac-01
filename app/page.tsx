@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, RefreshCw, Plus, Calendar, Wallet, Fuel, Utensils, Wifi, HelpCircle, TrendingUp, Edit3, X, Check, ChevronDown, ChevronRight, Zap, Box, Smartphone } from 'lucide-react';
+import { Trash2, TrendingUp, Edit3, X, ChevronDown, ChevronRight, Zap, Box, Smartphone, Landmark, Receipt, CreditCard, ArrowDownCircle } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -9,25 +9,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
 
-const PROJECT_NAME = "FINTRAC_01";
+const PROJECT_NAME = "FINTRAC_02";
 
-export default function FintracComplete() {
+export default function FintracRevamp() {
   const [entries, setEntries] = useState<any[]>([]);
   const [desc, setDesc] = useState("");
   const [amt, setAmt] = useState("");
   const [category, setCategory] = useState("FOOD");
   const [subCategory, setSubCategory] = useState("");
   const [type, setType] = useState("EXPENSE");
-  const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
 
   const fetchLedger = async () => {
-    setLoading(true);
     const { data } = await supabase.from('ledger_entries').select('*').order('created_at', { ascending: false });
     if (data) setEntries(data);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -44,6 +41,16 @@ export default function FintracComplete() {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   }
 
+  const stats = useMemo(() => {
+    return entries.reduce((acc, curr) => {
+      const val = Number(curr.amount);
+      if (curr.type === 'INCOME') acc.income += val;
+      else if (curr.type === 'BANK') acc.bank += val;
+      else acc.expense += val;
+      return acc;
+    }, { income: 0, expense: 0, bank: 0 });
+  }, [entries]);
+
   const organizedData = useMemo(() => {
     const months: Record<string, any> = {};
     entries.forEach(e => {
@@ -51,17 +58,14 @@ export default function FintracComplete() {
       const mKey = date.toLocaleString('default', { month: 'long' }).toUpperCase();
       const wKey = `WEEK ${getWeekNumber(date)}`;
 
-      if (!months[mKey]) months[mKey] = { revenue: 0, expense: 0, weeks: {} };
-      if (!months[mKey].weeks[wKey]) months[mKey].weeks[wKey] = { revenue: 0, expense: 0, entries: [] };
+      if (!months[mKey]) months[mKey] = { income: 0, expense: 0, bank: 0, weeks: {} };
+      if (!months[mKey].weeks[wKey]) months[mKey].weeks[wKey] = { income: 0, expense: 0, bank: 0, entries: [] };
 
       months[mKey].weeks[wKey].entries.push(e);
-      if (e.type === 'INCOME') {
-        months[mKey].revenue += Number(e.amount);
-        months[mKey].weeks[wKey].revenue += Number(e.amount);
-      } else {
-        months[mKey].expense += Number(e.amount);
-        months[mKey].weeks[wKey].expense += Number(e.amount);
-      }
+      const val = Number(e.amount);
+      if (e.type === 'INCOME') { months[mKey].income += val; months[mKey].weeks[wKey].income += val; }
+      else if (e.type === 'BANK') { months[mKey].bank += val; months[mKey].weeks[wKey].bank += val; }
+      else { months[mKey].expense += val; months[mKey].weeks[wKey].expense += val; }
     });
     return months;
   }, [entries]);
@@ -71,14 +75,13 @@ export default function FintracComplete() {
     if (!desc || !amt) return;
 
     let finalCategory = category;
-    if ((category === "DATA" || category === "MISC") && subCategory) {
-      finalCategory = `${category}: ${subCategory}`;
-    }
+    if (type === 'BANK') finalCategory = `BANK: ${subCategory || 'UNSPECIFIED'}`;
+    else if ((category === "DATA" || category === "MISC") && subCategory) finalCategory = `${category}: ${subCategory}`;
 
     const payload = {
       description: desc.toUpperCase(),
       amount: parseFloat(amt),
-      type: type,
+      type,
       category: type === 'INCOME' ? 'REVENUE' : finalCategory
     };
 
@@ -92,188 +95,147 @@ export default function FintracComplete() {
       const { data } = await supabase.from('ledger_entries').insert([payload]).select();
       if (data) setEntries([data[0], ...entries]);
     }
-
     setDesc(""); setAmt(""); setSubCategory("");
   };
 
-  const deleteEntry = async (id: string) => {
-    if (!window.confirm("ARE YOU SURE YOU WANT TO DELETE THIS LOG?")) return;
-    const { error } = await supabase.from('ledger_entries').delete().eq('id', id);
-    if (!error) setEntries(entries.filter(e => e.id !== id));
-  };
-
-  const startEdit = (item: any) => {
-    setEditingId(item.id);
-    setDesc(item.description);
-    setAmt(item.amount.toString());
-    setType(item.type);
-
-    if (item.category.includes(':')) {
-      const [cat, sub] = item.category.split(': ');
-      setCategory(cat);
-      setSubCategory(sub);
-    } else {
-      setCategory(item.category);
-    }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const totalBalance = entries.reduce((acc, curr) => curr.type === 'INCOME' ? acc + Number(curr.amount) : acc - Number(curr.amount), 0);
-
   return (
-    <main className="min-h-screen bg-[#050505] text-[#d1d1d1] p-4 md:p-10 font-sans italic">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen bg-[#080808] text-[#e0e0e0] p-4 md:p-10 font-sans italic selection:bg-[#bfff00] selection:text-black">
+      <div className="max-w-5xl mx-auto">
 
-        {/* HEADER */}
-        <div className="flex justify-between items-end mb-10 border-b border-white/5 pb-8">
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter text-[#bfff00] uppercase">{PROJECT_NAME}</h1>
-            <p className="text-[9px] opacity-30 font-bold tracking-[0.4em] mt-1 italic">V2.1 • LIVE INVENTORY CONTROL</p>
+        {/* GLOBAL HUD */}
+        <div className="grid grid-cols-3 gap-2 mb-8 bg-white/[0.03] p-4 rounded-[2rem] border border-white/5 backdrop-blur-md">
+          <div className="text-center border-r border-white/5">
+            <p className="text-[7px] font-black opacity-40 uppercase tracking-[0.2em]">Total Income</p>
+            <p className="text-lg font-black text-[#bfff00]">{stats.income.toLocaleString()}</p>
           </div>
-          <div className="text-right">
-            <p className="text-[8px] font-black opacity-20 uppercase tracking-widest">Global Wallet</p>
-            <p className="text-2xl font-black text-white">{totalBalance.toLocaleString()}</p>
+          <div className="text-center border-r border-white/5">
+            <p className="text-[7px] font-black opacity-40 uppercase tracking-[0.2em]">Total Spent</p>
+            <p className="text-lg font-black text-rose-500">{stats.expense.toLocaleString()}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[7px] font-black opacity-40 uppercase tracking-[0.2em]">In Bank</p>
+            <p className="text-lg font-black text-sky-400">{stats.bank.toLocaleString()}</p>
           </div>
         </div>
 
-        {/* INPUT FORM */}
-        <div className={`p-8 rounded-[2.5rem] border transition-all mb-12 shadow-2xl ${editingId ? 'bg-amber-500/5 border-amber-500/50' : 'bg-[#111] border-white/5'}`}>
+        {/* INPUT ENGINE */}
+        <div className={`p-8 rounded-[3rem] border transition-all mb-12 ${editingId ? 'bg-amber-500/10 border-amber-500/50' : 'bg-[#111] border-white/10'}`}>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex gap-2 p-1 bg-black rounded-2xl border border-white/5">
-                {['EXPENSE', 'INCOME'].map(t => (
-                  <button key={t} type="button" onClick={() => { setType(t); setCategory(t === 'INCOME' ? 'REVENUE' : 'FOOD'); }} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${type === t ? 'bg-[#bfff00] text-black' : 'opacity-20'}`}>{t}</button>
-                ))}
-              </div>
-              {editingId && (
-                <button type="button" onClick={() => { setEditingId(null); setDesc(""); setAmt(""); }} className="text-rose-500 text-[9px] font-black uppercase underline flex items-center gap-1">
-                  <X size={12} /> Cancel Edit
+            <div className="flex gap-2 p-1.5 bg-black/50 rounded-2xl border border-white/5">
+              {['EXPENSE', 'INCOME', 'BANK'].map(t => (
+                <button key={t} type="button" onClick={() => { setType(t); setCategory(t === 'INCOME' ? 'REVENUE' : t === 'BANK' ? 'BANK' : 'FOOD'); }}
+                  className={`flex-1 py-3 rounded-xl text-[9px] font-black transition-all ${type === t ? 'bg-[#bfff00] text-black shadow-lg shadow-[#bfff00]/20' : 'opacity-30'}`}>
+                  {t === 'BANK' ? 'SAVE TO BANK' : t}
                 </button>
-              )}
+              ))}
             </div>
 
-            {type === 'INCOME' && (
-              <p className="text-[10px] font-black text-[#bfff00] uppercase tracking-widest border-l-2 border-[#bfff00] pl-3 italic">Daily Income Report</p>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input placeholder="DESCRIPTION" className="bg-transparent border-b border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-lg" value={desc} onChange={e => setDesc(e.target.value)} />
-              <input type="number" placeholder="AMOUNT" className="bg-transparent border-b border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-xl" value={amt} onChange={e => setAmt(e.target.value)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="relative">
+                <input placeholder=" " className="peer w-full bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-xl transition-all" value={desc} onChange={e => setDesc(e.target.value)} />
+                <label className="absolute left-2 -top-4 text-[8px] font-black opacity-40 uppercase transition-all peer-placeholder-shown:top-2 peer-placeholder-shown:text-sm peer-focus:-top-4 peer-focus:text-[8px] peer-focus:text-[#bfff00]">Description / Source</label>
+              </div>
+              <div className="relative">
+                <input type="number" placeholder=" " className="peer w-full bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-2xl transition-all" value={amt} onChange={e => setAmt(e.target.value)} />
+                <label className="absolute left-2 -top-4 text-[8px] font-black opacity-40 uppercase transition-all peer-placeholder-shown:top-2 peer-placeholder-shown:text-sm peer-focus:-top-4 peer-focus:text-[8px] peer-focus:text-[#bfff00]">Amount (NGN)</label>
+              </div>
             </div>
 
-            {type === 'EXPENSE' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select className="bg-black border border-white/10 rounded-xl p-3 text-[10px] font-black outline-none" value={category} onChange={e => { setCategory(e.target.value); setSubCategory(""); }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {type === 'EXPENSE' && (
+                <select className="bg-black border border-white/10 rounded-2xl p-4 text-[10px] font-black outline-none focus:border-[#bfff00]" value={category} onChange={e => { setCategory(e.target.value); setSubCategory(""); }}>
                   <option value="FOOD">🍔 FOOD</option>
                   <option value="DATA">📡 DATA</option>
                   <option value="PETROL">⛽ PETROL</option>
                   <option value="NEPA">⚡ NEPA</option>
                   <option value="MISC">📦 MISC</option>
                 </select>
+              )}
 
-                {(category === 'DATA' || category === 'MISC') && (
-                  <select className="bg-black border border-[#bfff00]/30 rounded-xl p-3 text-[10px] font-black outline-none text-[#bfff00]" value={subCategory} onChange={e => setSubCategory(e.target.value)}>
-                    <option value="">{category === 'DATA' ? 'SELECT PROVIDER' : 'SELECT TYPE'}</option>
-                    {category === 'DATA' ? (
-                      <><option value="MTN">MTN</option><option value="AIRTEL">AIRTEL</option></>
-                    ) : (
-                      <><option value="INVENTORY">📋 INVENTORY</option><option value="OTHERS">🌀 OTHERS</option></>
-                    )}
-                  </select>
-                )}
-              </div>
-            )}
-            <button className={`w-full py-5 rounded-2xl font-black text-[11px] tracking-widest shadow-lg transition-all ${editingId ? 'bg-amber-500 text-black' : 'bg-[#bfff00] text-black shadow-[#bfff00]/5'}`}>
-              {editingId ? 'UPDATE RECORD' : 'LOG TRANSACTION'}
+              {(type === 'BANK' || category === 'DATA' || category === 'MISC') && (
+                <select className="bg-black border border-[#bfff00]/30 rounded-2xl p-4 text-[10px] font-black outline-none text-[#bfff00]" value={subCategory} onChange={e => setSubCategory(e.target.value)}>
+                  <option value="">SELECT {type === 'BANK' ? 'BANK' : 'SUB-CATEGORY'}</option>
+                  {type === 'BANK' ? (
+                    <><option value="GTB">GTB</option><option value="ZENITH">ZENITH</option></>
+                  ) : category === 'DATA' ? (
+                    <><option value="MTN">MTN</option><option value="AIRTEL">AIRTEL</option></>
+                  ) : (
+                    <><option value="INVENTORY">📋 INVENTORY</option><option value="OTHERS">🌀 OTHERS</option></>
+                  )}
+                </select>
+              )}
+            </div>
+
+            <button className={`w-full py-6 rounded-[1.5rem] font-black text-[11px] tracking-[0.3em] transition-all active:scale-95 ${editingId ? 'bg-amber-500 text-black' : 'bg-[#bfff00] text-black shadow-xl shadow-[#bfff00]/10 hover:shadow-[#bfff00]/20'}`}>
+              {editingId ? 'UPDATE RECORD' : 'EXECUTE TRANSACTION'}
             </button>
           </form>
         </div>
 
-        {/* NESTED LISTING */}
-        <div className="space-y-8 pb-20">
-          {Object.keys(organizedData).map(mKey => {
-            const mSaved = organizedData[mKey].revenue - organizedData[mKey].expense;
-            return (
-              <div key={mKey} className="rounded-[2.5rem] bg-white/[0.02] border border-white/5 overflow-hidden">
-                <button onClick={() => setExpandedMonths(prev => prev.includes(mKey) ? prev.filter(k => k !== mKey) : [...prev, mKey])}
-                  className="w-full p-8 flex justify-between items-center bg-white/[0.03] hover:bg-white/[0.06] transition-all text-left">
-                  <div className="flex items-center gap-4">
-                    {expandedMonths.includes(mKey) ? <ChevronDown className="text-[#bfff00]" /> : <ChevronRight />}
-                    <h2 className="text-xl font-black tracking-widest">{mKey}</h2>
+        {/* NESTED LEDGER */}
+        <div className="space-y-10 pb-32">
+          {Object.keys(organizedData).map(mKey => (
+            <div key={mKey} className="group">
+              <button onClick={() => setExpandedMonths(prev => prev.includes(mKey) ? prev.filter(k => k !== mKey) : [...prev, mKey])}
+                className="w-full mb-4 flex justify-between items-center group-hover:translate-x-1 transition-transform">
+                <div className="flex items-center gap-4">
+                  <div className={`p-2 rounded-xl ${expandedMonths.includes(mKey) ? 'bg-[#bfff00] text-black' : 'bg-white/5 text-white'}`}>
+                    {expandedMonths.includes(mKey) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                   </div>
+                  <h2 className="text-3xl font-black tracking-tighter uppercase">{mKey}</h2>
+                </div>
+                <div className="flex gap-4">
                   <div className="text-right">
-                    <p className={`text-[10px] font-black uppercase ${mSaved >= 0 ? 'text-[#bfff00]' : 'text-rose-500'}`}>
-                      {mSaved >= 0 ? `Saved to Bank: ${mSaved.toLocaleString()}` : `Deficit: ${mSaved.toLocaleString()}`}
-                    </p>
+                    <p className="text-[7px] font-black opacity-30 uppercase">Monthly Bank</p>
+                    <p className="text-sm font-black text-sky-400">{organizedData[mKey].bank.toLocaleString()}</p>
                   </div>
-                </button>
+                </div>
+              </button>
 
-                {expandedMonths.includes(mKey) && (
-                  <div className="p-4 space-y-4">
-                    {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => {
-                      const wSaved = organizedData[mKey].weeks[wKey].revenue - organizedData[mKey].weeks[wKey].expense;
-                      return (
-                        <div key={wKey} className="rounded-3xl border border-white/5 bg-black/40 overflow-hidden">
-                          <button onClick={() => setExpandedWeeks(prev => prev.includes(wKey) ? prev.filter(k => k !== wKey) : [...prev, wKey])}
-                            className="w-full p-5 flex justify-between items-center hover:bg-white/5 transition-all">
-                            <p className="text-[10px] font-black text-white/40 uppercase">{wKey}</p>
-                            <p className={`text-[10px] font-black ${wSaved >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {wSaved >= 0 ? `Saved: ${wSaved.toLocaleString()}` : `Loss: ${wSaved.toLocaleString()}`}
-                            </p>
-                          </button>
-
-                          {expandedWeeks.includes(wKey) && (
-                            <div className="px-4 pb-4 space-y-2">
-                              {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
-                                <div key={item.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/[0.02]">
-                                  <div className="flex items-center gap-4">
-                                    <div className="text-[#bfff00] opacity-30">
-                                      {item.category.includes('FOOD') && <Utensils size={14} />}
-                                      {item.category.includes('PETROL') && <Fuel size={14} />}
-                                      {item.category.includes('NEPA') && <Zap size={14} />}
-                                      {item.category.includes('DATA') && <Smartphone size={14} />}
-                                      {item.category.includes('MISC') && <Box size={14} />}
-                                      {item.type === 'INCOME' && <TrendingUp size={14} />}
-                                    </div>
-                                    <div>
-                                      <p className="text-[11px] font-black uppercase text-white tracking-tight">{item.description}</p>
-                                      <p className="text-[8px] font-bold opacity-20 uppercase tracking-tighter">
-                                        {new Date(item.created_at).toLocaleDateString('en-US', { weekday: 'short' })} • {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  {/* ALWAYS VISIBLE ACTION BUTTONS */}
-                                  <div className="flex items-center gap-3">
-                                    <p className={`text-sm font-black mr-2 ${item.type === 'INCOME' ? 'text-emerald-400' : 'text-white'}`}>
-                                      {item.type === 'INCOME' ? '+' : '-'}{Number(item.amount).toLocaleString()}
-                                    </p>
-                                    <button
-                                      onClick={() => startEdit(item)}
-                                      className="p-2.5 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20 active:bg-sky-500 active:text-black transition-all"
-                                    >
-                                      <Edit3 size={14} />
-                                    </button>
-                                    <button
-                                      onClick={() => deleteEntry(item.id)}
-                                      className="p-2.5 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 active:bg-rose-500 active:text-white transition-all"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+              {expandedMonths.includes(mKey) && (
+                <div className="grid gap-6 pl-4 border-l-2 border-white/5">
+                  {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => (
+                    <div key={wKey} className="bg-white/[0.01] rounded-[2rem] border border-white/[0.05] overflow-hidden">
+                      <div className="p-6 flex justify-between items-center bg-white/[0.02]">
+                        <span className="text-[10px] font-black text-[#bfff00] tracking-widest">{wKey}</span>
+                        <div className="flex gap-6">
+                          <div className="text-right">
+                            <p className="text-[7px] font-black opacity-30 uppercase">Weekly Bank</p>
+                            <p className="text-xs font-black text-sky-400">+{organizedData[mKey].weeks[wKey].bank.toLocaleString()}</p>
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
+                          <div key={item.id} className="bg-black/40 p-5 rounded-2xl border border-white/[0.03] flex justify-between items-center group/item hover:border-[#bfff00]/20 transition-all">
+                            <div className="flex items-center gap-5">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.type === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/40'}`}>
+                                {item.type === 'BANK' ? <Landmark size={18} /> : item.type === 'INCOME' ? <TrendingUp size={18} /> : <Receipt size={18} />}
+                              </div>
+                              <div>
+                                <p className="text-xs font-black uppercase text-white tracking-wide">{item.description}</p>
+                                <p className="text-[8px] font-black opacity-20 uppercase mt-0.5">{item.category}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <p className={`text-sm font-black ${item.type === 'BANK' ? 'text-sky-400' : item.type === 'INCOME' ? 'text-emerald-400' : 'text-white/80'}`}>
+                                {item.type === 'EXPENSE' ? '-' : '+'}{Number(item.amount).toLocaleString()}
+                              </p>
+                              <div className="flex gap-2">
+                                <button onClick={() => startEdit(item)} className="p-2 text-sky-400 bg-sky-400/10 rounded-lg border border-sky-400/20"><Edit3 size={14} /></button>
+                                <button onClick={() => { if (confirm('DELETE LOG?')) supabase.from('ledger_entries').delete().eq('id', item.id).then(fetchLedger) }} className="p-2 text-rose-500 bg-rose-500/10 rounded-lg border border-rose-500/20"><Trash2 size={14} /></button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </main>
