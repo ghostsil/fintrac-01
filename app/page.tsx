@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, TrendingUp, Edit3, ChevronDown, ChevronRight, Landmark, Receipt, Wallet, RefreshCw } from 'lucide-react';
+import { Trash2, TrendingUp, Edit3, Landmark, Receipt, RefreshCw, CalendarDays } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -95,7 +95,7 @@ export default function FintracRevamp() {
     } else {
       const { data, error } = await supabase.from('ledger_entries').insert([payload]).select();
       if (error) {
-        alert(`Database Error: ${error.message}`);
+        alert(`Error: ${error.message}`);
       } else if (data) {
         setEntries([data[0], ...entries]);
         setDesc(""); setAmt(""); setSubCategory("");
@@ -128,13 +128,15 @@ export default function FintracRevamp() {
     <main className="min-h-screen bg-[#050505] text-[#f0f0f0] p-4 md:p-10 font-sans italic">
       <div className="max-w-4xl mx-auto">
 
+        {/* Header Section */}
         <div className="flex justify-between items-center mb-8 px-4">
           <h1 className="text-[10px] font-black tracking-[0.5em] opacity-30 uppercase">Fintrac // 02</h1>
           <button onClick={fetchLedger} className={`p-2 transition-all ${isSyncing ? 'animate-spin opacity-100' : 'opacity-20 hover:opacity-100'}`}>
-            <RefreshCw size="{16}" />
+            <RefreshCw size={16} />
           </button>
         </div>
 
+        {/* Global Stats */}
         <div className="grid grid-cols-3 gap-3 mb-10">
           {[
             { label: 'Income', val: stats.income, color: 'text-[#bfff00]' },
@@ -148,6 +150,7 @@ export default function FintracRevamp() {
           ))}
         </div>
 
+        {/* Input Form Section */}
         <div className={`p-8 rounded-[3rem] border transition-all mb-16 ${editingId ? 'bg-orange-500/10 border-orange-500/30' : 'bg-[#0a0a0a] border-white/5 shadow-2xl'}`}>
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="flex gap-2 p-1.5 bg-black rounded-2xl border border-white/5">
@@ -194,37 +197,63 @@ export default function FintracRevamp() {
           </form>
         </div>
 
-        <div className="space-y-12 pb-20">
+        {/* THE NESTED VIEW: Month -> Week -> Days */}
+        <div className="space-y-16 pb-20">
           {Object.keys(organizedData).map(mKey => (
-            <div key={mKey} className="space-y-6">
-              <h2 className="text-3xl font-black uppercase tracking-tighter border-b border-white/5 pb-2">{mKey}</h2>
-              {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => (
-                <div key={wKey} className="space-y-3">
-                  <p className="text-[8px] font-black opacity-20 ml-2 tracking-widest">{wKey}</p>
-                  {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
-                    <div key={item.id} className="bg-white/[0.02] hover:bg-white/[0.04] p-5 rounded-[1.5rem] border border-white/[0.03] transition-all flex justify-between items-center group">
-                      <div className="flex items-center gap-5">
-                        <div className={`p-3 rounded-xl ${item.type?.toUpperCase() === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type?.toUpperCase() === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/20'}`}>
-                          {item.type?.toUpperCase() === 'BANK' ? <Landmark size="{18}" /> : item.type?.toUpperCase() === 'INCOME' ? <TrendingUp size="{18}" /> : <Receipt size="{18}" />}
-                        </div>
-                        <div>
-                          <p className="text-xs font-black uppercase">{item.description}</p>
-                          <p className="text-[7px] font-black opacity-20 uppercase mt-0.5">{item.category}</p>
-                        </div>
+            <div key={mKey} className="bg-white/[0.02] border border-white/5 rounded-[3rem] p-6 md:p-10 space-y-8">
+              {/* Month Header */}
+              <div className="flex justify-between items-end border-b border-white/5 pb-6">
+                <h2 className="text-4xl font-black uppercase tracking-tighter">{mKey}</h2>
+                <div className="text-right">
+                  <p className="text-[8px] font-black opacity-30 tracking-[0.3em] mb-1 uppercase">Month Total</p>
+                  <p className="text-xl font-black text-[#bfff00]">{organizedData[mKey].income.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Weeks Nested in Month */}
+              <div className="grid grid-cols-1 gap-8">
+                {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => (
+                  <div key={wKey} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] p-6 space-y-6">
+                    <div className="flex justify-between items-center px-2">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays size={14} className="opacity-20" />
+                        <p className="text-[10px] font-black tracking-widest uppercase opacity-40">{wKey}</p>
                       </div>
-                      <div className="flex items-center gap-5">
-                        <p className={`text-md font-black ${item.type?.toUpperCase() === 'INCOME' ? 'text-[#bfff00]' : item.type?.toUpperCase() === 'BANK' ? 'text-sky-400' : 'text-white'}`}>
-                          {Number(item.amount).toLocaleString()}
-                        </p>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(item)} className="p-2 text-sky-400"><Edit3 size="{12}" /></button>
-                          <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500"><Trash2 size="{12}" /></button>
-                        </div>
+                      <div className="flex gap-4">
+                        <p className="text-[9px] font-black text-rose-500/50">-{organizedData[mKey].weeks[wKey].expense.toLocaleString()}</p>
+                        <p className="text-[9px] font-black text-sky-400/50">+{organizedData[mKey].weeks[wKey].bank.toLocaleString()}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ))}
+
+                    {/* Entries Nested in Week */}
+                    <div className="space-y-3">
+                      {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
+                        <div key={item.id} className="bg-black/40 hover:bg-[#bfff00]/5 p-5 rounded-[1.5rem] border border-white/[0.03] transition-all flex justify-between items-center group">
+                          <div className="flex items-center gap-5">
+                            <div className={`p-3 rounded-xl ${item.type?.toUpperCase() === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type?.toUpperCase() === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/20'}`}>
+                              {item.type?.toUpperCase() === 'BANK' ? <Landmark size={18} /> : item.type?.toUpperCase() === 'INCOME' ? <TrendingUp size={18} /> : <Receipt size={18} />}
+                            </div>
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-tight">{item.description}</p>
+                              <p className="text-[7px] font-black opacity-20 uppercase mt-0.5">{item.category}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-5">
+                            <p className={`text-md font-black ${item.type?.toUpperCase() === 'INCOME' ? 'text-[#bfff00]' : item.type?.toUpperCase() === 'BANK' ? 'text-sky-400' : 'text-white'}`}>
+                              {Number(item.amount).toLocaleString()}
+                            </p>
+                            <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => startEdit(item)} className="p-2 text-sky-400 hover:scale-125 transition-transform"><Edit3 size={12} /></button>
+                              <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500 hover:scale-125 transition-transform"><Trash2 size={12} /></button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
