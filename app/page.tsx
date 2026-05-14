@@ -17,7 +17,6 @@ export default function FintracRevamp() {
   const [subCategory, setSubCategory] = useState("");
   const [type, setType] = useState("EXPENSE");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchLedger = async () => {
@@ -32,11 +31,8 @@ export default function FintracRevamp() {
 
   useEffect(() => {
     fetchLedger();
-    const now = new Date();
-    setExpandedMonths([now.toLocaleString('default', { month: 'long' }).toUpperCase()]);
   }, []);
 
-  // Standardizing type checks to handle the ALL CAPS seen in file 9b0c08dc-18c0-4228-b9d2-0677739dc79a
   const stats = useMemo(() => {
     return entries.reduce((acc, curr) => {
       const val = Number(curr.amount);
@@ -85,7 +81,7 @@ export default function FintracRevamp() {
     const payload = {
       description: finalDesc,
       amount: parseFloat(amt),
-      type: type.toUpperCase(), // Force UpperCase to match file 9b0c08dc-18c0-4228-b9d2-0677739dc79a
+      type: type.toUpperCase(),
       category: type === 'INCOME' ? 'REVENUE' : finalCategory
     };
 
@@ -94,16 +90,17 @@ export default function FintracRevamp() {
       if (!error) {
         setEntries(entries.map(item => item.id === editingId ? { ...item, ...payload } : item));
         setEditingId(null);
+        setDesc(""); setAmt(""); setSubCategory("");
       }
     } else {
       const { data, error } = await supabase.from('ledger_entries').insert([payload]).select();
       if (error) {
-        alert(`Error: ${error.message}`);
+        alert(`Database Error: ${error.message}`);
       } else if (data) {
         setEntries([data[0], ...entries]);
+        setDesc(""); setAmt(""); setSubCategory("");
       }
     }
-    setDesc(""); setAmt(""); setSubCategory("");
   };
 
   const startEdit = (item: any) => {
@@ -131,15 +128,13 @@ export default function FintracRevamp() {
     <main className="min-h-screen bg-[#050505] text-[#f0f0f0] p-4 md:p-10 font-sans italic">
       <div className="max-w-4xl mx-auto">
 
-        {/* HEADER */}
         <div className="flex justify-between items-center mb-8 px-4">
           <h1 className="text-[10px] font-black tracking-[0.5em] opacity-30 uppercase">Fintrac // 02</h1>
           <button onClick={fetchLedger} className={`p-2 transition-all ${isSyncing ? 'animate-spin opacity-100' : 'opacity-20 hover:opacity-100'}`}>
-            <RefreshCw size={16} />
+            <RefreshCw size="{16}" />
           </button>
         </div>
 
-        {/* DASHBOARD */}
         <div className="grid grid-cols-3 gap-3 mb-10">
           {[
             { label: 'Income', val: stats.income, color: 'text-[#bfff00]' },
@@ -153,7 +148,6 @@ export default function FintracRevamp() {
           ))}
         </div>
 
-        {/* FORM */}
         <div className={`p-8 rounded-[3rem] border transition-all mb-16 ${editingId ? 'bg-orange-500/10 border-orange-500/30' : 'bg-[#0a0a0a] border-white/5 shadow-2xl'}`}>
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="flex gap-2 p-1.5 bg-black rounded-2xl border border-white/5">
@@ -200,15 +194,10 @@ export default function FintracRevamp() {
           </form>
         </div>
 
-        {/* LIST */}
         <div className="space-y-12 pb-20">
           {Object.keys(organizedData).map(mKey => (
             <div key={mKey} className="space-y-6">
-              <div className="flex justify-between items-end border-b border-white/5 pb-2">
-                <h2 className="text-3xl font-black uppercase tracking-tighter">{mKey}</h2>
-                <span className="text-[8px] font-black opacity-20 tracking-[0.3em]">MONTHLY RECORD</span>
-              </div>
-
+              <h2 className="text-3xl font-black uppercase tracking-tighter border-b border-white/5 pb-2">{mKey}</h2>
               {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => (
                 <div key={wKey} className="space-y-3">
                   <p className="text-[8px] font-black opacity-20 ml-2 tracking-widest">{wKey}</p>
@@ -216,7 +205,7 @@ export default function FintracRevamp() {
                     <div key={item.id} className="bg-white/[0.02] hover:bg-white/[0.04] p-5 rounded-[1.5rem] border border-white/[0.03] transition-all flex justify-between items-center group">
                       <div className="flex items-center gap-5">
                         <div className={`p-3 rounded-xl ${item.type?.toUpperCase() === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type?.toUpperCase() === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/20'}`}>
-                          {item.type?.toUpperCase() === 'BANK' ? <Landmark size={18} /> : item.type?.toUpperCase() === 'INCOME' ? <TrendingUp size={18} /> : <Receipt size={18} />}
+                          {item.type?.toUpperCase() === 'BANK' ? <Landmark size="{18}" /> : item.type?.toUpperCase() === 'INCOME' ? <TrendingUp size="{18}" /> : <Receipt size="{18}" />}
                         </div>
                         <div>
                           <p className="text-xs font-black uppercase">{item.description}</p>
@@ -228,8 +217,8 @@ export default function FintracRevamp() {
                           {Number(item.amount).toLocaleString()}
                         </p>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEdit(item)} className="p-2 text-sky-400"><Edit3 size={12} /></button>
-                          <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500"><Trash2 size={12} /></button>
+                          <button onClick={() => startEdit(item)} className="p-2 text-sky-400"><Edit3 size="{12}" /></button>
+                          <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500"><Trash2 size="{12}" /></button>
                         </div>
                       </div>
                     </div>
