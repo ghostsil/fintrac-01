@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Trash2, TrendingUp, Edit3, Landmark, Receipt, RefreshCw, CalendarDays } from 'lucide-react';
+import { Trash2, TrendingUp, Edit3, Landmark, Receipt, RefreshCw, CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -18,6 +18,16 @@ export default function FintracRevamp() {
   const [type, setType] = useState("EXPENSE");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Track which weeks are expanded
+  const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
+
+  const toggleWeek = (weekId: string) => {
+    setExpandedWeeks(prev => ({
+      ...prev,
+      [weekId]: !prev[weekId]
+    }));
+  };
 
   const fetchLedger = async () => {
     setIsSyncing(true);
@@ -211,48 +221,70 @@ export default function FintracRevamp() {
               </div>
 
               {/* Weeks Nested in Month */}
-              <div className="grid grid-cols-1 gap-8">
-                {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => (
-                  <div key={wKey} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] p-6 space-y-6">
-                    <div className="flex justify-between items-center px-2">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays size={14} className="opacity-20" />
-                        <p className="text-[10px] font-black tracking-widest uppercase opacity-40">{wKey}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <p className="text-[9px] font-black text-rose-500/50">-{organizedData[mKey].weeks[wKey].expense.toLocaleString()}</p>
-                        <p className="text-[9px] font-black text-sky-400/50">+{organizedData[mKey].weeks[wKey].bank.toLocaleString()}</p>
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 gap-6">
+                {Object.keys(organizedData[mKey].weeks).sort().reverse().map(wKey => {
+                  const weekId = `${mKey}-${wKey}`;
+                  const isExpanded = expandedWeeks[weekId];
 
-                    {/* Entries Nested in Week */}
-                    <div className="space-y-3">
-                      {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
-                        <div key={item.id} className="bg-black/40 hover:bg-[#bfff00]/5 p-5 rounded-[1.5rem] border border-white/[0.03] transition-all flex justify-between items-center group">
-                          <div className="flex items-center gap-5">
-                            <div className={`p-3 rounded-xl ${item.type?.toUpperCase() === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type?.toUpperCase() === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/20'}`}>
-                              {item.type?.toUpperCase() === 'BANK' ? <Landmark size={18} /> : item.type?.toUpperCase() === 'INCOME' ? <TrendingUp size={18} /> : <Receipt size={18} />}
-                            </div>
-                            <div>
-                              <p className="text-xs font-black uppercase tracking-tight">{item.description}</p>
-                              <p className="text-[7px] font-black opacity-20 uppercase mt-0.5">{item.category}</p>
-                            </div>
+                  return (
+                    <div key={wKey} className={`bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden transition-all duration-300 ${isExpanded ? 'ring-1 ring-[#bfff00]/20' : ''}`}>
+
+                      {/* Week Header - Clickable Dropdown Toggle */}
+                      <button
+                        onClick={() => toggleWeek(weekId)}
+                        className="w-full flex justify-between items-center p-6 hover:bg-white/[0.02] transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-lg transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-[#bfff00] text-black' : 'bg-white/5 opacity-40'}`}>
+                            <ChevronDown size={14} />
                           </div>
-
-                          <div className="flex items-center gap-5">
-                            <p className={`text-md font-black ${item.type?.toUpperCase() === 'INCOME' ? 'text-[#bfff00]' : item.type?.toUpperCase() === 'BANK' ? 'text-sky-400' : 'text-white'}`}>
-                              {Number(item.amount).toLocaleString()}
-                            </p>
-                            <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => startEdit(item)} className="p-2 text-sky-400 hover:scale-125 transition-transform"><Edit3 size={12} /></button>
-                              <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500 hover:scale-125 transition-transform"><Trash2 size={12} /></button>
+                          <div className="flex items-center gap-2">
+                            <CalendarDays size={14} className="opacity-20" />
+                            <p className="text-[10px] font-black tracking-widest uppercase opacity-60">{wKey}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-4 items-center">
+                          <div className="text-right">
+                            <p className="text-[7px] opacity-20 font-black uppercase tracking-widest">Week Activity</p>
+                            <div className="flex gap-3">
+                              <p className="text-[10px] font-black text-rose-500">-{organizedData[mKey].weeks[wKey].expense.toLocaleString()}</p>
+                              <p className="text-[10px] font-black text-sky-400">+{organizedData[mKey].weeks[wKey].bank.toLocaleString()}</p>
                             </div>
                           </div>
                         </div>
-                      ))}
+                      </button>
+
+                      {/* Entries Nested in Week (Dropdown Content) */}
+                      {isExpanded && (
+                        <div className="px-6 pb-6 pt-2 space-y-3 animate-in fade-in slide-in-from-top-2">
+                          {organizedData[mKey].weeks[wKey].entries.map((item: any) => (
+                            <div key={item.id} className="bg-black/40 hover:bg-[#bfff00]/5 p-5 rounded-[1.5rem] border border-white/[0.03] transition-all flex justify-between items-center group">
+                              <div className="flex items-center gap-5">
+                                <div className={`p-3 rounded-xl ${item.type?.toUpperCase() === 'BANK' ? 'bg-sky-500/10 text-sky-400' : item.type?.toUpperCase() === 'INCOME' ? 'bg-[#bfff00]/10 text-[#bfff00]' : 'bg-white/5 text-white/20'}`}>
+                                  {item.type?.toUpperCase() === 'BANK' ? <Landmark size={18} /> : item.type?.toUpperCase() === 'INCOME' ? <TrendingUp size={18} /> : <Receipt size={18} />}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-tight">{item.description}</p>
+                                  <p className="text-[7px] font-black opacity-20 uppercase mt-0.5">{item.category}</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-5">
+                                <p className={`text-md font-black ${item.type?.toUpperCase() === 'INCOME' ? 'text-[#bfff00]' : item.type?.toUpperCase() === 'BANK' ? 'text-sky-400' : 'text-white'}`}>
+                                  {Number(item.amount).toLocaleString()}
+                                </p>
+                                <div className="flex gap-1 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => startEdit(item)} className="p-2 text-sky-400 hover:scale-125 transition-transform"><Edit3 size={12} /></button>
+                                  <button onClick={() => deleteEntry(item.id)} className="p-2 text-rose-500 hover:scale-125 transition-transform"><Trash2 size={12} /></button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
