@@ -76,14 +76,22 @@ export default function FintracRevamp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!desc || !amt) return;
+
+    // Logic updated: Description is only required for Income and Expense
+    if (!amt || (type !== 'BANK' && !desc)) return;
 
     let finalCategory = category;
-    if (type === 'BANK') finalCategory = `BANK: ${subCategory || 'UNSPECIFIED'}`;
-    else if ((category === "DATA" || category === "MISC") && subCategory) finalCategory = `${category}: ${subCategory}`;
+    let finalDesc = desc.toUpperCase();
+
+    if (type === 'BANK') {
+      finalCategory = `BANK: ${subCategory || 'UNSPECIFIED'}`;
+      finalDesc = `BANK DEPOSIT (${subCategory || 'SAVINGS'})`;
+    } else if ((category === "DATA" || category === "MISC") && subCategory) {
+      finalCategory = `${category}: ${subCategory}`;
+    }
 
     const payload = {
-      description: desc.toUpperCase(),
+      description: finalDesc,
       amount: parseFloat(amt),
       type,
       category: type === 'INCOME' ? 'REVENUE' : finalCategory
@@ -102,14 +110,12 @@ export default function FintracRevamp() {
     setDesc(""); setAmt(""); setSubCategory("");
   };
 
-  // ADDED BACK: The missing function that caused the build error
   const startEdit = (item: any) => {
     setEditingId(item.id);
     setDesc(item.description);
     setAmt(item.amount.toString());
     setType(item.type);
 
-    // Check if it's a sub-category entry
     if (item.category.includes(':')) {
       const [cat, sub] = item.category.split(': ');
       setCategory(cat === 'BANK' ? 'BANK' : cat);
@@ -117,7 +123,6 @@ export default function FintracRevamp() {
     } else {
       setCategory(item.category);
     }
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -159,9 +164,12 @@ export default function FintracRevamp() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <input placeholder="DESCRIPTION" className="bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-xl" value={desc} onChange={e => setDesc(e.target.value)} />
-              <input type="number" placeholder="AMOUNT" className="bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-2xl" value={amt} onChange={e => setAmt(e.target.value)} />
+            <div className={`grid grid-cols-1 ${type === 'BANK' ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-8`}>
+              {/* Description is hidden if Bank is selected */}
+              {type !== 'BANK' && (
+                <input placeholder="DESCRIPTION" className="bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-bold uppercase text-xl" value={desc} onChange={e => setDesc(e.target.value)} />
+              )}
+              <input type="number" placeholder="AMOUNT (NGN)" className="bg-transparent border-b-2 border-white/10 p-2 outline-none focus:border-[#bfff00] font-black text-2xl" value={amt} onChange={e => setAmt(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
