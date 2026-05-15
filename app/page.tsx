@@ -47,7 +47,7 @@ export default function FintracMobilePro() {
       const t = curr.type?.toUpperCase();
       if (t === 'INCOME') acc.income += val;
       else if (t === 'BANK') acc.bank += val;
-      else acc.expense += val;
+      else if (t === 'EXPENSE') acc.expense += val;
       return acc;
     }, { income: 0, expense: 0, bank: 0 });
   }, [entries]);
@@ -70,11 +70,19 @@ export default function FintracMobilePro() {
       if (!months[mKey].weeks[wKey]) months[mKey].weeks[wKey] = { income: 0, expense: 0, bank: 0, days: {}, sortVal: mondayDate.getTime() };
       if (!months[mKey].weeks[wKey].days[dKey]) months[mKey].weeks[wKey].days[dKey] = [];
       months[mKey].weeks[wKey].days[dKey].push(e);
+
       const val = Number(e.amount);
       const t = e.type?.toUpperCase();
-      if (t === 'INCOME') { months[mKey].income += val; months[mKey].weeks[wKey].income += val; }
-      else if (t === 'BANK') { months[mKey].bank += val; months[mKey].weeks[wKey].bank += val; }
-      else { months[mKey].expense += val; months[mKey].weeks[wKey].expense += val; }
+      if (t === 'INCOME') {
+        months[mKey].income += val;
+        months[mKey].weeks[wKey].income += val;
+      } else if (t === 'BANK') {
+        months[mKey].bank += val;
+        months[mKey].weeks[wKey].bank += val;
+      } else if (t === 'EXPENSE') {
+        months[mKey].expense += val;
+        months[mKey].weeks[wKey].expense += val;
+      }
     });
     return months;
   }, [entries]);
@@ -86,17 +94,44 @@ export default function FintracMobilePro() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amt) return;
+
     let finalDesc = desc.trim().toUpperCase() || (type === 'EXPENSE' ? category : `${type} ENTRY`);
-    let finalCategory = type === 'INCOME' ? 'REVENUE' : type === 'BANK' ? 'BANK' : (category === "DATA" && subCategory ? `DATA: ${subCategory}` : category);
-    const payload = { description: finalDesc, amount: parseFloat(amt), type: type.toUpperCase(), category: finalCategory.toUpperCase() };
+
+    let finalCategory = category;
+    if (type === 'INCOME') {
+      finalCategory = 'REVENUE';
+    } else if (type === 'BANK') {
+      finalCategory = 'BANK';
+    } else if (category === "DATA" && subCategory) {
+      finalCategory = `DATA: ${subCategory}`;
+    }
+
+    const payload = {
+      description: finalDesc,
+      amount: parseFloat(amt),
+      type: type.toUpperCase(),
+      category: finalCategory.toUpperCase()
+    };
+
     const { data, error } = await supabase.from('ledger_entries').insert([payload]).select();
-    if (!error && data) { setEntries([data[0], ...entries]); setDesc(""); setAmt(""); setSubCategory(""); }
+    if (!error && data) {
+      setEntries([data[0], ...entries]);
+      setDesc("");
+      setAmt("");
+      setSubCategory("");
+    }
   };
 
   const deleteEntry = async (id: string) => {
     if (!window.confirm("Delete transaction?")) return;
     await supabase.from('ledger_entries').delete().eq('id', id);
     fetchLedger();
+  };
+
+  const getInputColorClass = () => {
+    if (type === 'EXPENSE') return 'text-rose-500 focus:border-rose-500 placeholder-rose-900';
+    if (type === 'BANK') return 'text-sky-400 focus:border-sky-400 placeholder-sky-900';
+    return 'text-green-600 focus:border-green-600 placeholder-lime-900';
   };
 
   return (
@@ -127,7 +162,7 @@ export default function FintracMobilePro() {
         <div className="bg-[#FF7A45] rounded-[2.5rem] p-8 shadow-2xl shadow-orange-200 relative overflow-hidden text-white">
           <div className="relative z-10">
             <p className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">Global Balance</p>
-            <h2 className="text-4xl font-black mb-6">₦{(stats.income + stats.bank - stats.expense).toLocaleString()}</h2>
+            <h2 className="text-4xl font-black mb-6">₦{(stats.income - stats.expense).toLocaleString()}</h2>
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-[10px] font-bold opacity-70 uppercase">In Bank</p>
@@ -138,7 +173,6 @@ export default function FintracMobilePro() {
               </div>
             </div>
           </div>
-          {/* Decorative circles to match mockup */}
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full"></div>
           <div className="absolute -left-10 -bottom-10 w-24 h-24 bg-black/5 rounded-full"></div>
         </div>
@@ -188,6 +222,21 @@ export default function FintracMobilePro() {
               </div>
             )}
 
+            {type === 'EXPENSE' && category === 'DATA' && (
+              <div className="flex gap-3 p-1 bg-gray-50 rounded-xl border border-gray-100">
+                {['MTN', 'AIRTEL'].map(provider => (
+                  <button
+                    key={provider}
+                    type="button"
+                    onClick={() => setSubCategory(provider)}
+                    className={`flex-1 py-2 text-[9px] font-bold rounded-lg transition-all ${subCategory === provider ? 'bg-[#FF7A45]/10 text-[#FF7A45] border border-[#FF7A45]/20' : 'text-gray-400'}`}
+                  >
+                    {provider}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="space-y-4">
               <input placeholder="What is this for?" className="w-full bg-transparent border-b border-gray-100 p-2 text-sm font-bold outline-none focus:border-[#FF7A45] transition-all" value={desc} onChange={e => setDesc(e.target.value)} />
               <input type="number" placeholder="Enter Amount" className="w-full bg-transparent border-b border-gray-100 p-2 text-2xl font-black outline-none focus:border-[#FF7A45] text-[#2D2D2D]" value={amt} onChange={e => setAmt(e.target.value)} />
@@ -205,7 +254,7 @@ export default function FintracMobilePro() {
             <div key={mKey} className="space-y-4">
               <button onClick={() => toggleMonth(mKey)} className="w-full flex justify-between items-center group">
                 <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">{mKey}</h3>
-                <ChevronDown size={14} className={`text-gray-300 transition-transform ${expandedMonths[mKey] ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className="text-gray-300" />
               </button>
 
               <div className={`pop-accordion ${expandedMonths[mKey] ? 'open' : ''}`}>
@@ -220,7 +269,10 @@ export default function FintracMobilePro() {
                             <p className="text-[10px] font-black text-[#FF7A45] uppercase tracking-widest">{wKey}</p>
                             <p className="text-[9px] font-bold text-gray-400 mt-0.5">Summary of activity</p>
                           </div>
-                          <ChevronDown size={14} className={`text-gray-300 transition-transform ${isExp ? 'rotate-180' : ''}`} />
+                          <div className="flex gap-4 text-right mr-2">
+                            <div><p className="text-[7px] text-gray-400 font-bold uppercase">Income</p><p className="text-[10px] font-bold text-green-600">₦{organizedData[mKey].weeks[wKey].income.toLocaleString()}</p></div>
+                            <div><p className="text-[7px] text-gray-400 font-bold uppercase">Spent</p><p className="text-[10px] font-bold text-red-500">₦{organizedData[mKey].weeks[wKey].expense.toLocaleString()}</p></div>
+                          </div>
                         </button>
 
                         {isExp && (
@@ -244,7 +296,7 @@ export default function FintracMobilePro() {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                      <p className={`text-xs font-bold ${item.type === 'INCOME' ? 'text-green-600' : 'text-gray-700'}`}>
+                                      <p className={`text-xs font-bold ${item.type === 'INCOME' ? 'text-green-600' : item.type === 'EXPENSE' ? 'text-red-500' : 'text-gray-700'}`}>
                                         {item.type === 'EXPENSE' ? '-' : ''}₦{Number(item.amount).toLocaleString()}
                                       </p>
                                       <button onClick={() => deleteEntry(item.id)} className="opacity-0 group-hover:opacity-100 p-1 text-red-200 hover:text-red-500 transition-all">
